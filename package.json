@@ -1,13 +1,22 @@
 {
-  "name": "univers-literari",
+  "name": "bookverse",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "konva": "^10.0.12",
+    "lucide-react": "^0.560.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "react-konva": "^19.2.1",
+    "use-image": "^1.1.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -19,13 +28,5 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "vite": "^7.2.4"
-  },
-  "dependencies": {
-    "konva": "^10.0.12",
-    "lucide-react": "^0.560.0",
-    "react": "^19.2.1",
-    "react-dom": "^19.2.1",
-    "react-konva": "^19.2.1",
-    "use-image": "^1.1.4"
   }
 }
