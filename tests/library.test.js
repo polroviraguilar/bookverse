@@ -56,3 +56,64 @@ test("global search reveals nested books together with their ancestors", async (
   });
   assert.deepEqual(new Set(visible.map((node) => node.id)), new Set(["u1", "s1", "b1"]));
 });
+
+test("dropping a book into a saga assigns both saga and universe", async () => {
+  const { reparentNode } = await import("../src/domain/library.js");
+  const nodes = reparentNode(sample, "b3", "s1", { x: 10, y: 0 });
+  const book = nodes.find((node) => node.id === "b3");
+  assert.equal(book.parentSagaId, "s1");
+  assert.equal(book.universeId, "u1");
+});
+
+test("dropping a book into a universe makes it a direct universe book", async () => {
+  const { reparentNode } = await import("../src/domain/library.js");
+  const nodes = reparentNode(sample, "b1", "u1", { x: 0, y: 0 });
+  const book = nodes.find((node) => node.id === "b1");
+  assert.equal(book.parentSagaId, null);
+  assert.equal(book.universeId, "u1");
+});
+
+test("dropping a saga into another universe moves its books with it", async () => {
+  const { reparentNode } = await import("../src/domain/library.js");
+  const nodes = [
+    ...sample,
+    { id: "u2", type: "universe", title: "U2", x: 500, y: 500 },
+  ];
+  const beforeBook = nodes.find((node) => node.id === "b1");
+  const moved = reparentNode(nodes, "s1", "u2", { x: 500, y: 500 });
+  const saga = moved.find((node) => node.id === "s1");
+  const book = moved.find((node) => node.id === "b1");
+  assert.equal(saga.universeId, "u2");
+  assert.equal(book.universeId, "u2");
+  assert.notEqual(book.x, beforeBook.x);
+});
+
+test("the bundled curated library has valid hierarchy and no dangling relations", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const payload = JSON.parse(
+    await readFile(new URL("../src/data/initialLibrary.json", import.meta.url), "utf8"),
+  );
+  const ids = new Set(payload.nodes.map((node) => node.id));
+  assert.equal(payload.nodes.filter((node) => node.type === "universe").length, 7);
+  assert.equal(payload.nodes.filter((node) => node.type === "saga").length, 48);
+  assert.equal(payload.nodes.filter((node) => node.type === "book").length, 140);
+
+  for (const node of payload.nodes) {
+    if (node.universeId) assert.equal(ids.has(node.universeId), true);
+    if (node.parentSagaId) assert.equal(ids.has(node.parentSagaId), true);
+  }
+
+  const earthsea = payload.nodes.find((node) => node.id === "saga-earthsea-cycle");
+  assert.equal(earthsea.universeId, "universe-earthsea");
+  assert.equal(
+    payload.nodes.filter((node) => node.parentSagaId === earthsea.id).length,
+    4,
+  );
+
+  assert.equal(
+    payload.nodes.filter(
+      (node) => node.type === "saga" && node.title.includes("Hitchhiker"),
+    ).length,
+    1,
+  );
+});

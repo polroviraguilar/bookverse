@@ -1,4 +1,4 @@
-# Bookverse 2.0
+# Bookverse 2.0.3
 
 Bookverse is a visual literary atlas built with React, Vite and Konva. It turns a reading library into an explorable hierarchy of universes, sagas and books, with a premium canvas, a contextual inspector, a Reading Atlas timeline and a guided Goodreads importer.
 
@@ -7,6 +7,7 @@ Bookverse is a visual literary atlas built with React, Vite and Konva. It turns 
 - Visual hierarchy: **Universe → Saga → Book**.
 - Standalone sagas and standalone books are supported.
 - Drag, pan and pointer-centred zoom on the canvas.
+- Drag-and-drop hierarchy: books can be dropped into sagas or universes, and sagas can be dropped into universes.
 - Derived saga progress and rating statistics.
 - Safe relationship updates when books or sagas are moved.
 - Cascading deletion with confirmation.
@@ -83,12 +84,20 @@ Create JSON backups regularly, especially before clearing browser data or moving
 
 ## Data migration
 
-Bookverse 2.0 reads:
+Bookverse 2.0.3 uses the `bookverse-library-v3` autosave key. On the first run it loads the curated library bundled in `src/data/initialLibrary.json`, created from the supplied 30 July 2026 backup.
 
-- the new `bookverse-library-v2` autosave payload;
-- the previous `story-map-autosave-v1` payload.
+Before doing so, any existing `bookverse-library-v2` or `story-map-autosave-v1` value is preserved under `bookverse-library-backup-before-v3`. This prevents the previous browser data from being destroyed.
 
-Legacy data is normalized automatically. Invalid nodes are removed, orphaned relationships are repaired and books inside sagas inherit the correct universe.
+The bundled library contains:
+
+- 7 curated universes;
+- 48 sagas;
+- 140 books;
+- the four Earthsea novels grouped into **Earthsea Cycle**;
+- the duplicate Hitchhiker saga merged into one;
+- direct universe books such as **Best Served Cold** inside **The Circle of the World**.
+
+Relationships are normalized automatically. Books inside sagas inherit the correct universe, and invalid or dangling parent identifiers are removed.
 
 ## GitHub Pages deployment
 
@@ -110,7 +119,7 @@ base: command === "build" ? "/bookverse/" : "/"
 
 If the repository is renamed, update this value in `vite.config.js` before building.
 
-## Replace the existing repository with Bookverse 2.0
+## Replace the existing repository with Bookverse 2.0.3
 
 Back up the current repository first. Then replace its contents with this project, preserving the `.git` directory.
 
@@ -118,7 +127,7 @@ From the repository root:
 
 ```bash
 git add -A
-git commit -m "Release Bookverse 2.0"
+git commit -m "Release Bookverse 2.0.3"
 git push origin main
 ```
 
@@ -153,6 +162,8 @@ The Node test suite covers:
 - global saga creation;
 - inherited universe relationships;
 - moving a saga between universes;
+- dropping books into sagas and universes;
+- dropping sagas into universes while moving their child books;
 - universe cascading deletion;
 - derived saga statistics;
 - quoted and multiline CSV values;

@@ -17,7 +17,7 @@ function getFitCamera(nodes, size) {
   const maxY = Math.max(...ys) + 190;
   const worldWidth = Math.max(300, maxX - minX);
   const worldHeight = Math.max(300, maxY - minY);
-  const scale = clamp(Math.min(size.width / worldWidth, size.height / worldHeight) * 0.88, 0.34, 1.35);
+  const scale = clamp(Math.min(size.width / worldWidth, size.height / worldHeight) * 0.88, 0.16, 1.35);
   const centerX = (minX + maxX) / 2;
   const centerY = (minY + maxY) / 2;
   return {
@@ -42,6 +42,7 @@ export default function CanvasBoard({
   selectedNodeId,
   onSelectNode,
   onMoveNode,
+  onDropNode,
   onEnterNode,
   fitSignal,
   onCenterChanged,
@@ -53,6 +54,8 @@ export default function CanvasBoard({
   const wheelTimerRef = useRef(null);
   const lastFitSignalRef = useRef(fitSignal);
   const [size, setSize] = useState({ width: 1, height: 1 });
+  const [draggingNodeId, setDraggingNodeId] = useState(null);
+  const [dropTargetId, setDropTargetId] = useState(null);
 
   const applyCameraToStage = useCallback((nextCamera) => {
     const stage = stageRef.current;
@@ -122,6 +125,61 @@ export default function CanvasBoard({
     ));
   }, [camera, orderedNodes, size]);
 
+  const findDropTarget = useCallback((source, position) => {
+    if (!source || source.type === "universe") return null;
+
+    const candidates = nodes
+      .filter((target) => {
+        if (target.id === source.id) return false;
+        if (source.type === "saga") return target.type === "universe";
+        return target.type === "saga" || target.type === "universe";
+      })
+      .map((target) => {
+        const distance = Math.hypot(position.x - target.x, position.y - target.y);
+        const captureRadius = getNodeRadius(target.type) + 42;
+        const specificityBonus = source.type === "book" && target.type === "saga" ? 0.08 : 0;
+        return {
+          target,
+          inside: distance <= captureRadius,
+          score: distance / captureRadius - specificityBonus,
+        };
+      })
+      .filter((candidate) => candidate.inside)
+      .sort((left, right) => left.score - right.score);
+
+    return candidates[0]?.target || null;
+  }, [nodes]);
+
+  const handleNodeDragStart = useCallback((node) => {
+    setDraggingNodeId(node.id);
+    setDropTargetId(null);
+    onSelectNode(node.id);
+    document.body.style.cursor = "grabbing";
+  }, [onSelectNode]);
+
+  const handleNodeDragMove = useCallback((node, position) => {
+    const target = findDropTarget(node, position);
+    setDropTargetId((current) => {
+      const next = target?.id || null;
+      return current === next ? current : next;
+    });
+    document.body.style.cursor = target ? "copy" : "grabbing";
+  }, [findDropTarget]);
+
+  const handleNodeDragEnd = useCallback((node, position) => {
+    const target = findDropTarget(node, position);
+    setDraggingNodeId(null);
+    setDropTargetId(null);
+    document.body.style.cursor = "default";
+
+    if (target) {
+      onDropNode(node.id, target.id, position);
+      return;
+    }
+
+    onMoveNode(node.id, position);
+  }, [findDropTarget, onDropNode, onMoveNode]);
+
   const handleWheel = (event) => {
     event.evt.preventDefault();
     const stage = stageRef.current;
@@ -134,7 +192,7 @@ export default function CanvasBoard({
       y: (pointer.y - current.position.y) / current.scale,
     };
     const factor = event.evt.deltaY > 0 ? 0.92 : 1.087;
-    const scale = clamp(current.scale * factor, 0.22, 2.6);
+    const scale = clamp(current.scale * factor, 0.16, 2.6);
     const nextCamera = {
       scale,
       position: {
@@ -202,18 +260,38 @@ export default function CanvasBoard({
               selected={node.id === selectedNodeId}
               stageScale={camera.scale}
               onSelect={onSelectNode}
-              onMove={onMoveNode}
+              onDragStart={handleNodeDragStart}
+              onDragMove={handleNodeDragMove}
+              onDragEnd={handleNodeDragEnd}
               onEnter={onEnterNode}
+              dropTarget={node.id === dropTargetId}
+              dragging={node.id === draggingNodeId}
             />
           ))}
         </Layer>
       </Stage>
+      {draggingNodeId && dropTargetId ? (
+        <div className="bv-drop-hint">
+          Deixa anar per afegir-lo a l’element ressaltat
+        </div>
+      ) : null}
       <div className="bv-canvas-vignette" />
     </div>
   );
 }
 
-const NodeGroup = memo(function NodeGroup({ node, selected, stageScale, onSelect, onMove, onEnter }) {
+const NodeGroup = memo(function NodeGroup({
+  node,
+  selected,
+  stageScale,
+  onSelect,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  onEnter,
+  dropTarget,
+  dragging,
+}) {
   const groupRef = useRef(null);
   const [hovered, setHovered] = useState(false);
 
@@ -224,11 +302,22 @@ const NodeGroup = memo(function NodeGroup({ node, selected, stageScale, onSelect
       y={node.y}
       draggable
       onMouseDown={(event) => { event.cancelBubble = true; }}
+      onDragStart={(event) => {
+        event.cancelBubble = true;
+        onDragStart(node);
+      }}
+      onDragMove={(event) => {
+        event.cancelBubble = true;
+        onDragMove(node, { x: event.target.x(), y: event.target.y() });
+      }}
+      onDragEnd={(event) => {
+        event.cancelBubble = true;
+        onDragEnd(node, { x: event.target.x(), y: event.target.y() });
+      }}
       onClick={(event) => { event.cancelBubble = true; onSelect(node.id); }}
       onTap={(event) => { event.cancelBubble = true; onSelect(node.id); }}
       onDblClick={(event) => { event.cancelBubble = true; onEnter(node); }}
       onDblTap={(event) => { event.cancelBubble = true; onEnter(node); }}
-      onDragEnd={(event) => onMove(node.id, { x: event.target.x(), y: event.target.y() })}
       onMouseEnter={() => {
         setHovered(true);
         document.body.style.cursor = "pointer";
@@ -236,10 +325,24 @@ const NodeGroup = memo(function NodeGroup({ node, selected, stageScale, onSelect
       }}
       onMouseLeave={() => {
         setHovered(false);
-        document.body.style.cursor = "default";
+        if (!dragging) document.body.style.cursor = "default";
         groupRef.current?.to({ scaleX: 1, scaleY: 1, duration: 0.12 });
       }}
     >
+      {dropTarget ? (
+        <Circle
+          radius={getNodeRadius(node.type) + 28}
+          stroke="#f5d88a"
+          strokeWidth={5}
+          dash={[10, 8]}
+          opacity={0.95}
+          shadowColor="#f5d88a"
+          shadowBlur={28}
+          shadowOpacity={0.8}
+          listening={false}
+          perfectDrawEnabled={false}
+        />
+      ) : null}
       <Circle
         radius={getNodeRadius(node.type) + 16}
         fill="transparent"
@@ -254,4 +357,6 @@ const NodeGroup = memo(function NodeGroup({ node, selected, stageScale, onSelect
   previous.node === next.node
   && previous.selected === next.selected
   && previous.stageScale === next.stageScale
+  && previous.dropTarget === next.dropTarget
+  && previous.dragging === next.dragging
 ));
