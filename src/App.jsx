@@ -145,6 +145,11 @@ export default function App() {
     setNodes((current) => updateNodePosition(current, nodeId, position));
   };
 
+  const handleSelectNode = (nodeId) => {
+    setSelectedNodeId(nodeId);
+    if (nodeId) setSidebarOpen(true);
+  };
+
   const enterNode = (node) => {
     if (node.type === "universe") {
       setView({ mode: "universe", universeId: node.id, sagaId: null });
@@ -261,7 +266,7 @@ export default function App() {
                 camera={camera}
                 onCameraChange={setCamera}
                 selectedNodeId={selectedNodeId}
-                onSelectNode={setSelectedNodeId}
+                onSelectNode={handleSelectNode}
                 onMoveNode={handleMoveNode}
                 onEnterNode={enterNode}
                 fitSignal={fitSignal}
