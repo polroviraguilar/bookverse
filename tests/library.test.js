@@ -47,14 +47,65 @@ test("saga statistics are derived from books", () => {
   assert.equal(stats.sagaRatingAvg, 4.5);
 });
 
-test("global search reveals nested books together with their ancestors", async () => {
+test("global search only reveals the top-level ancestor", async () => {
   const { getVisibleNodes } = await import("../src/domain/library.js");
-  const visible = getVisibleNodes(normalizeLibrary(sample), { mode: "global" }, "B1", {
-    type: "tots",
-    genre: "tots",
-    status: "tots",
-  });
-  assert.deepEqual(new Set(visible.map((node) => node.id)), new Set(["u1", "s1", "b1"]));
+
+  const visible = getVisibleNodes(
+    normalizeLibrary(sample),
+    { mode: "global" },
+    "B1",
+    {
+      type: "tots",
+      genre: "tots",
+      status: "tots",
+    },
+  );
+
+  assert.deepEqual(
+    new Set(visible.map((node) => node.id)),
+    new Set(["u1"]),
+  );
+});
+
+test("global view only contains nodes without parents", async () => {
+  const { getVisibleNodes } = await import("../src/domain/library.js");
+
+  const nodes = normalizeLibrary([
+    ...sample,
+    {
+      id: "s2",
+      type: "saga",
+      title: "Saga independent",
+      universeId: null,
+      x: 100,
+      y: 100,
+    },
+    {
+      id: "b4",
+      type: "book",
+      title: "Llibre independent",
+      parentSagaId: null,
+      universeId: null,
+      x: 200,
+      y: 100,
+    },
+  ]);
+
+  const visible = getVisibleNodes(
+    nodes,
+    { mode: "global" },
+    "",
+    {
+      type: "tots",
+      genre: "tots",
+      status: "tots",
+    },
+  );
+
+  assert.deepEqual(
+    new Set(visible.map((node) => node.id)),
+    new Set(["u1", "s2", "b4"]),
+  );
 });
 
 test("dropping a book into a saga assigns both saga and universe", async () => {
