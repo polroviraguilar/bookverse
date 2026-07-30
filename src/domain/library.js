@@ -634,16 +634,52 @@ export function getVisibleNodes(nodes, view, query = "", filters = {}) {
     return includeAncestors(matches, scopeIds);
   }
 
-  if (hasCriteria) {
-    return filtered.length ? includeAncestors(filtered) : [];
+  const rootNodes = nodes.filter(
+  (node) =>
+    node.type === "universe" ||
+    (node.type === "saga" && !node.universeId) ||
+    (node.type === "book" && !node.parentSagaId && !node.universeId),
+);
+
+if (!hasCriteria) {
+  return rootNodes;
+}
+
+const nodesById = new Map(nodes.map((node) => [node.id, node]));
+const matchingRootIds = new Set();
+
+filtered.forEach((node) => {
+  if (node.type === "universe") {
+    matchingRootIds.add(node.id);
+    return;
   }
 
-  return nodes.filter(
-    (node) =>
-      node.type === "universe" ||
-      (node.type === "saga" && !node.universeId) ||
-      (node.type === "book" && !node.parentSagaId && !node.universeId),
-  );
+  if (node.type === "saga") {
+    matchingRootIds.add(node.universeId || node.id);
+    return;
+  }
+
+  if (node.universeId) {
+    matchingRootIds.add(node.universeId);
+    return;
+  }
+
+  if (node.parentSagaId) {
+    const parentSaga = nodesById.get(node.parentSagaId);
+
+    matchingRootIds.add(
+      parentSaga?.universeId ||
+      parentSaga?.id ||
+      node.id,
+    );
+
+    return;
+  }
+
+  matchingRootIds.add(node.id);
+});
+
+return rootNodes.filter((node) => matchingRootIds.has(node.id));
 }
 
 export function getParentView(nodes, view) {
