@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Group, Layer, Stage } from "react-konva";
+import { Circle, Group, Layer, Stage } from "react-konva";
 import ConnectionLines from "./ConnectionLines.jsx";
 import NodeTooltip from "./NodeTooltip.jsx";
 import NodeVisual from "./NodeVisual.jsx";
+import { getNodeRadius } from "./nodeUtils.js";
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
@@ -239,6 +240,12 @@ const NodeGroup = memo(function NodeGroup({ node, selected, stageScale, onSelect
         groupRef.current?.to({ scaleX: 1, scaleY: 1, duration: 0.12 });
       }}
     >
+      <Circle
+        radius={getNodeRadius(node.type) + 16}
+        fill="transparent"
+        strokeEnabled={false}
+        perfectDrawEnabled={false}
+      />
       <NodeVisual node={node} selected={selected} hovered={hovered} stageScale={stageScale} />
       {hovered && stageScale >= 0.55 ? <NodeTooltip node={node} /> : null}
     </Group>
