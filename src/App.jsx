@@ -309,8 +309,8 @@ export default function App() {
                 onCenterChanged={setCenterWorld}
               />
 
-              {enrichedNodes.length ? (
-                <MiniMap nodes={enrichedNodes} camera={camera} onJump={jumpMiniMap} />
+              {visibleNodes.length ? (
+                <MiniMap nodes={visibleNodes} camera={camera} onJump={jumpMiniMap} />
               ) : null}
 
               <CanvasToolbar
