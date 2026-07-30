@@ -1,6 +1,10 @@
-export const SCHEMA_VERSION = 2;
-export const AUTOSAVE_KEY = "bookverse-library-v2";
-export const LEGACY_AUTOSAVE_KEY = "story-map-autosave-v1";
+export const SCHEMA_VERSION = 3;
+export const AUTOSAVE_KEY = "bookverse-library-v3";
+export const LEGACY_AUTOSAVE_KEYS = [
+  "bookverse-library-v2",
+  "story-map-autosave-v1",
+];
+export const LEGACY_BACKUP_KEY = "bookverse-library-backup-before-v3";
 
 const DERIVED_KEYS = new Set([
   "totalBooks",
@@ -424,6 +428,97 @@ export function updateNodePosition(nodes, nodeId, position) {
       ? { ...node, x: numberOr(position.x, node.x), y: numberOr(position.y, node.y) }
       : node,
   );
+}
+
+function isValidParentTarget(source, target) {
+  if (!source || !target || source.id === target.id) return false;
+  if (source.type === "book") {
+    return target.type === "saga" || target.type === "universe";
+  }
+  if (source.type === "saga") return target.type === "universe";
+  return false;
+}
+
+function getSnappedChildPosition(nodes, source, target, droppedPosition) {
+  const childRadius = source.type === "saga" ? 340 : target.type === "saga" ? 230 : 285;
+  const x = numberOr(droppedPosition?.x, source.x);
+  const y = numberOr(droppedPosition?.y, source.y);
+  const dx = x - target.x;
+  const dy = y - target.y;
+  const distance = Math.hypot(dx, dy);
+
+  if (distance >= childRadius * 0.72) return { x, y };
+
+  const siblingCount = nodes.filter((node) => {
+    if (source.type === "saga") {
+      return node.type === "saga" && node.universeId === target.id && node.id !== source.id;
+    }
+    if (target.type === "saga") {
+      return node.type === "book" && node.parentSagaId === target.id && node.id !== source.id;
+    }
+    return node.type === "book"
+      && node.universeId === target.id
+      && !node.parentSagaId
+      && node.id !== source.id;
+  }).length;
+
+  const fallbackAngle = siblingCount * 2.399963229728653;
+  const angle = distance > 8 ? Math.atan2(dy, dx) : fallbackAngle;
+
+  return {
+    x: target.x + Math.cos(angle) * childRadius,
+    y: target.y + Math.sin(angle) * childRadius,
+  };
+}
+
+export function reparentNode(nodes, nodeId, targetId, droppedPosition) {
+  const clean = normalizeLibrary(nodes);
+  const source = clean.find((node) => node.id === nodeId);
+  const target = clean.find((node) => node.id === targetId);
+
+  if (!isValidParentTarget(source, target)) {
+    return updateNodePosition(clean, nodeId, droppedPosition || source || {});
+  }
+
+  const nextPosition = getSnappedChildPosition(clean, source, target, droppedPosition);
+
+  if (source.type === "book") {
+    const updatedBook = {
+      ...source,
+      ...nextPosition,
+      parentSagaId: target.type === "saga" ? target.id : null,
+      universeId:
+        target.type === "saga"
+          ? target.universeId || null
+          : target.id,
+    };
+    return applyNodeUpdate(clean, updatedBook);
+  }
+
+  const dx = nextPosition.x - source.x;
+  const dy = nextPosition.y - source.y;
+  let shifted = clean.map((node) => {
+    if (node.id === source.id) {
+      return { ...node, ...nextPosition, universeId: target.id };
+    }
+    if (node.type === "book" && node.parentSagaId === source.id) {
+      return {
+        ...node,
+        x: node.x + dx,
+        y: node.y + dy,
+        universeId: target.id,
+      };
+    }
+    return node;
+  });
+
+  shifted = applyNodeUpdate(shifted, {
+    ...source,
+    ...nextPosition,
+    universeId: target.id,
+  });
+
+  return normalizeLibrary(shifted);
 }
 
 export function deleteNodeCascade(nodes, nodeId) {

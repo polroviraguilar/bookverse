@@ -8,11 +8,13 @@ import FilterPanel from "./components/shell/FilterPanel.jsx";
 import Inspector from "./components/shell/Inspector.jsx";
 import WelcomeCard from "./components/shell/WelcomeCard.jsx";
 import ReadingAtlas from "./components/timeline/ReadingAtlas.jsx";
+import initialLibrary from "./data/initialLibrary.json";
 import ConfirmDialog from "./components/ui/ConfirmDialog.jsx";
 import ToastStack from "./components/ui/ToastStack.jsx";
 import {
   AUTOSAVE_KEY,
-  LEGACY_AUTOSAVE_KEY,
+  LEGACY_AUTOSAVE_KEYS,
+  LEGACY_BACKUP_KEY,
   applyNodeUpdate,
   createAutosavePayload,
   createNode,
@@ -24,6 +26,7 @@ import {
   getVisibleNodes,
   migratePayload,
   normalizeLibrary,
+  reparentNode,
   updateNodePosition,
 } from "./domain/library.js";
 
@@ -76,15 +79,32 @@ export default function App() {
 
   useEffect(() => {
     let loaded = null;
-    for (const key of [AUTOSAVE_KEY, LEGACY_AUTOSAVE_KEY]) {
-      const raw = localStorage.getItem(key);
-      if (!raw) continue;
+    const currentRaw = localStorage.getItem(AUTOSAVE_KEY);
+
+    if (currentRaw) {
       try {
-        loaded = migratePayload(JSON.parse(raw));
-        if (loaded) break;
+        loaded = migratePayload(JSON.parse(currentRaw));
       } catch {
-        // Ignore invalid local payload and continue with the next source.
+        // Fall back to the curated bundled library below.
       }
+    }
+
+    if (!loaded) {
+      const legacyEntries = LEGACY_AUTOSAVE_KEYS
+        .map((key) => ({ key, raw: localStorage.getItem(key) }))
+        .filter((entry) => Boolean(entry.raw));
+
+      if (legacyEntries.length && !localStorage.getItem(LEGACY_BACKUP_KEY)) {
+        localStorage.setItem(
+          LEGACY_BACKUP_KEY,
+          JSON.stringify({
+            savedAt: new Date().toISOString(),
+            entries: legacyEntries,
+          }),
+        );
+      }
+
+      loaded = migratePayload(initialLibrary);
     }
 
     if (loaded) {
@@ -143,6 +163,21 @@ export default function App() {
 
   const handleMoveNode = (nodeId, position) => {
     setNodes((current) => updateNodePosition(current, nodeId, position));
+  };
+
+  const handleDropNode = (nodeId, targetId, position) => {
+    const source = enrichedNodes.find((node) => node.id === nodeId);
+    const target = enrichedNodes.find((node) => node.id === targetId);
+    if (!source || !target) return;
+
+    setNodes((current) => reparentNode(current, nodeId, targetId, position));
+
+    const relation = target.type === "saga" ? "la saga" : "l’univers";
+    notify(
+      "success",
+      `${source.title} afegit`,
+      `Ara forma part de ${relation} ${target.title}.`,
+    );
   };
 
   const handleSelectNode = (nodeId) => {
@@ -268,6 +303,7 @@ export default function App() {
                 selectedNodeId={selectedNodeId}
                 onSelectNode={handleSelectNode}
                 onMoveNode={handleMoveNode}
+                onDropNode={handleDropNode}
                 onEnterNode={enterNode}
                 fitSignal={fitSignal}
                 onCenterChanged={setCenterWorld}

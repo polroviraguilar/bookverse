@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.0.3 — Drag hierarchy and curated library
+
+### Drag and drop
+
+- Books can be dropped onto sagas to assign `parentSagaId` and inherit the saga universe.
+- Books can be dropped directly onto universes, clearing any previous saga relationship.
+- Sagas can be dropped onto universes; all child books inherit the new universe and move with the saga cluster.
+- Valid drop targets display a gold halo and a clear release hint.
+- Invalid target combinations are ignored and the node is only repositioned.
+
+### Curated library
+
+- Bundled the supplied 30 July 2026 Bookverse backup as the initial version 3 library.
+- Added 7 conservative shared universes: Cosmere, Realm of the Elderlings, The Circle of the World, Middle-earth, Earthsea, Dune Universe and Foundation Universe.
+- Created Earthsea Cycle and assigned the four existing Earthsea novels with correct volume order.
+- Merged the duplicate Hitchhiker saga.
+- Renamed the imported Wool saga to Silo.
+- Kept books and sagas without a reliable parent as standalone items.
+- Added a clean root and nested layout.
+
+### Persistence
+
+- Bumped the schema and autosave key to version 3.
+- Previous version 2 and version 1 localStorage payloads are backed up before the curated library is activated.
+
+## 2.0.2 — Node interaction hotfix
+
+- Restored a dedicated interactive hit area for every Konva node.
+- Fixed click, tap, hover, drag and double-click interactions after the performance optimization.
+- Selecting a node opens the inspector automatically.
+
 ## 2.0.1 — Performance hotfix
 
 ### Canvas
