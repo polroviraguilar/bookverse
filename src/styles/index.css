@@ -311,7 +311,10 @@ textarea:focus-visible {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--bg-0);
+  background:
+    radial-gradient(circle at 18% 22%, rgba(92, 66, 154, 0.16), transparent 34%),
+    radial-gradient(circle at 78% 68%, rgba(45, 78, 126, 0.11), transparent 38%),
+    linear-gradient(180deg, #070914 0%, var(--bg-0) 52%, #050711 100%);
 }
 
 .bv-canvas-stage canvas {

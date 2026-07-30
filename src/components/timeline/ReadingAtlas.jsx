@@ -18,6 +18,12 @@ const DAY_MS = 86_400_000;
 const CARD_WIDTH = 184;
 const SLOT_HEIGHT = 78;
 const EMPTY_TIMELINE_FALLBACK_TS = Date.UTC(2000, 0, 1);
+const DATE_FORMATTER = new Intl.DateTimeFormat("ca-ES", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+});
+const MONTH_FORMATTER = new Intl.DateTimeFormat("ca-ES", { month: "short" });
 
 function dateTs(value) {
   if (!value) return null;
@@ -25,15 +31,10 @@ function dateTs(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function formatDate(value, options = {}) {
+function formatDate(value) {
   const ts = typeof value === "number" ? value : dateTs(value);
   if (!ts) return "Sense data";
-  return new Intl.DateTimeFormat("ca-ES", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    ...options,
-  }).format(new Date(ts));
+  return DATE_FORMATTER.format(new Date(ts));
 }
 
 function getEvent(book, mode) {
@@ -87,7 +88,7 @@ function buildTicks(minTs, maxTs, pxPerDay) {
       label: major
         ? String(year)
         : showMonth
-          ? new Intl.DateTimeFormat("ca-ES", { month: "short" }).format(cursor)
+          ? MONTH_FORMATTER.format(cursor)
           : "",
     });
     cursor.setMonth(cursor.getMonth() + 1);
@@ -132,7 +133,6 @@ export default function ReadingAtlas({ nodes, onSelectBook }) {
   const minEvent = events.length
     ? Math.min(...events.map((entry) => entry.event.start))
     : EMPTY_TIMELINE_FALLBACK_TS;
-
   const maxEvent = events.length
     ? Math.max(...events.map((entry) => entry.event.end))
     : EMPTY_TIMELINE_FALLBACK_TS;
@@ -145,6 +145,7 @@ export default function ReadingAtlas({ nodes, onSelectBook }) {
     [minTs, pxPerDay],
   );
   const ticks = useMemo(() => buildTicks(minTs, maxTs, pxPerDay), [maxTs, minTs, pxPerDay]);
+  const gridTicks = useMemo(() => ticks.filter((tick) => tick.major), [ticks]);
 
   const lanes = useMemo(() => {
     const groups = new Map();
@@ -172,32 +173,38 @@ export default function ReadingAtlas({ nodes, onSelectBook }) {
       });
   }, [events, sagas, xFor]);
 
-  const ratings = events.filter(({ book }) => book.rating > 0);
-  const stats = {
-    books: events.length,
-    completed: events.filter(({ book }) => book.status === "completat").length,
-    pages: events.reduce((sum, { book }) => sum + (book.pageCount || 0), 0),
-    rating: ratings.length
-      ? (ratings.reduce((sum, { book }) => sum + book.rating, 0) / ratings.length).toFixed(1)
-      : "—",
-  };
+  const stats = useMemo(() => {
+    let completed = 0;
+    let pages = 0;
+    let ratingTotal = 0;
+    let ratingCount = 0;
+
+    events.forEach(({ book }) => {
+      if (book.status === "completat") completed += 1;
+      pages += book.pageCount || 0;
+      if (book.rating > 0) {
+        ratingTotal += book.rating;
+        ratingCount += 1;
+      }
+    });
+
+    return {
+      books: events.length,
+      completed,
+      pages,
+      rating: ratingCount ? (ratingTotal / ratingCount).toFixed(1) : "—",
+    };
+  }, [events]);
 
   const yearHistogram = (() => {
     const counts = new Map();
-
     events.forEach(({ event }) => {
       const year = new Date(event.anchor).getFullYear();
       counts.set(year, (counts.get(year) || 0) + 1);
     });
-
     const values = [...counts.entries()].sort((a, b) => a[0] - b[0]);
     const max = Math.max(1, ...values.map(([, count]) => count));
-
-    return values.map(([year, count]) => ({
-      year,
-      count,
-      height: (count / max) * 42,
-    }));
+    return values.map(([year, count]) => ({ year, count, height: (count / max) * 42 }));
   })();
 
   const centerAll = () => {
@@ -266,7 +273,7 @@ export default function ReadingAtlas({ nodes, onSelectBook }) {
                   <div><strong>{lane.title}</strong><small>{lane.subtitle}</small></div>
                 </div>
                 <div className="bv-atlas-lane__track" style={{ width: timelineWidth, height: laneHeight }}>
-                  {ticks.map((tick) => <span key={tick.ts} className={`bv-atlas-gridline ${tick.major ? "is-major" : ""}`} style={{ left: xFor(tick.ts) }} />)}
+                  {gridTicks.map((tick) => <span key={tick.ts} className="bv-atlas-gridline is-major" style={{ left: xFor(tick.ts) }} />)}
                   {lane.layout.items.map(({ book, event, x, slot }) => {
                     const segmentLeft = xFor(event.start);
                     const segmentWidth = Math.max(2, xFor(event.end) - segmentLeft);
@@ -280,7 +287,7 @@ export default function ReadingAtlas({ nodes, onSelectBook }) {
                           onClick={() => onSelectBook(book)}
                           title={`${book.title} — ${formatDate(event.anchor)}`}
                         >
-                          <img src={book.cover || bookCover} alt="" />
+                          <img src={book.cover || bookCover} alt="" loading="lazy" decoding="async" />
                           <span className="bv-timeline-card__copy">
                             <strong>{book.title}</strong>
                             <small>{book.author || "Autor desconegut"}</small>

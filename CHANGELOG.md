@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.0.1 — Performance hotfix
+
+### Canvas
+
+- Camera panning and wheel zoom now update the Konva stage directly instead of rerendering the complete React application for every pointer event.
+- Camera state is synchronized only after an interaction settles, reducing autosave work and full application renders.
+- Node positions are committed on drag end instead of on every drag frame.
+- Removed continuous starfield and connection-line animations that forced permanent canvas redraws.
+- Added viewport culling so nodes far outside the current camera area are not mounted.
+- Added level-of-detail rendering: distant nodes use a lightweight representation, while covers and labels appear when zoomed in.
+- Memoized node visuals and static connection lines.
+- Reduced expensive canvas shadows and perfect-draw passes.
+- Moved the cosmic background treatment to CSS so it does not redraw with the Konva world.
+
+### Reading Atlas
+
+- Lane gridlines now render yearly markers instead of duplicating every monthly marker in every saga lane.
+- Reused date formatters and lazy-loaded timeline cover images.
+- Consolidated timeline statistics into a single memoized pass.
+
+### Data work
+
+- Library summary statistics no longer enrich and normalize the entire collection a second time.
+
 ## 2.0.0
 
 ### New experience
