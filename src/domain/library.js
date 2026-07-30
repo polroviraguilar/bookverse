@@ -645,14 +645,13 @@ export function createAutosavePayload(nodes, state = {}) {
 }
 
 export function getLibraryStats(nodes) {
-  const clean = enrichLibrary(nodes);
-  const books = clean.filter((node) => node.type === "book");
+  const books = nodes.filter((node) => node.type === "book");
   const ratings = books.filter((book) => book.rating > 0);
   const pages = books.reduce((sum, book) => sum + (book.pageCount || 0), 0);
 
   return {
-    universes: clean.filter((node) => node.type === "universe").length,
-    sagas: clean.filter((node) => node.type === "saga").length,
+    universes: nodes.filter((node) => node.type === "universe").length,
+    sagas: nodes.filter((node) => node.type === "saga").length,
     books: books.length,
     completed: books.filter((book) => book.status === "completat").length,
     reading: books.filter((book) => book.status === "en-lectura").length,
